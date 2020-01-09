@@ -162,9 +162,15 @@ SecAccessControlCreateFlags accessControlValue(NSDictionary *options)
       return kSecAccessControlDevicePasscode;
     }
     else if ([options[kAccessControlType] isEqualToString: kAccessControlBiometryAnyOrDevicePasscode]) {
+      if (getSupportedBiometryType() == nil) {
+        return kSecAccessControlDevicePasscode;
+      }
       return kSecAccessControlTouchIDAny|kSecAccessControlOr|kSecAccessControlDevicePasscode;
     }
     else if ([options[kAccessControlType] isEqualToString: kAccessControlBiometryCurrentSetOrDevicePasscode]) {
+      if (getSupportedBiometryType() == nil) {
+        return kSecAccessControlDevicePasscode;
+      }
       return kSecAccessControlTouchIDCurrentSet|kSecAccessControlOr|kSecAccessControlDevicePasscode;
     }
     else if ([options[kAccessControlType] isEqualToString: kAccessControlApplicationPassword]) {
@@ -172,6 +178,34 @@ SecAccessControlCreateFlags accessControlValue(NSDictionary *options)
     }
   }
   return 0;
+}
+
+NSString * getSupportedBiometryType() {
+    NSError *aerr = nil;
+    LAContext *context = [LAContext new];
+    BOOL canBeProtected = [context canEvaluatePolicy:LAPolicyDeviceOwnerAuthentication error:&aerr];
+      
+
+    if (!aerr && canBeProtected) {
+      if (@available(iOS 11, *)) {
+        if (context.biometryType == LABiometryTypeFaceID) {
+            return kBiometryTypeFaceID;
+        } else if (context.biometryType == LABiometryTypeTouchID) {
+            return kBiometryTypeTouchID;
+        } else {
+            return nil;
+        }
+      } else if (@available(iOS 8, *)) {
+        BOOL hasTouchID = [context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&aerr];
+        if (!aerr && hasTouchID) {
+            return kBiometryTypeTouchID;
+        } else {
+            return nil;
+        }
+      }
+    }
+
+    return nil;
 }
 
 - (void)insertKeychainEntry:(NSDictionary *)attributes withOptions:(NSDictionary * __nullable)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject
@@ -268,20 +302,12 @@ RCT_EXPORT_METHOD(canCheckAuthentication:(NSDictionary *)options resolver:(RCTPr
 #if TARGET_OS_IOS
 RCT_EXPORT_METHOD(getSupportedBiometryType:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
-  NSError *aerr = nil;
-  LAContext *context = [LAContext new];
-  BOOL canBeProtected = [context canEvaluatePolicy:LAPolicyDeviceOwnerAuthentication error:&aerr];
-
-  if (!aerr && canBeProtected) {
-    if (@available(iOS 11, *)) {
-      if (context.biometryType == LABiometryTypeFaceID) {
-        return resolve(kBiometryTypeFaceID);
-      }
+    NSString *supportedBiometryType = getSupportedBiometryType();
+    if (supportedBiometryType == nil) {
+        return resolve([NSNull null]);
+    } else {
+        return resolve(supportedBiometryType);
     }
-    return resolve(kBiometryTypeTouchID);
-  }
-
-  return resolve([NSNull null]);
 }
 #endif
 
