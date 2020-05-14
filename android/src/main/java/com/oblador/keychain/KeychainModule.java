@@ -567,7 +567,7 @@ public class KeychainModule extends ReactContextBaseJavaModule {
       final BiometricPrompt prompt = new BiometricPrompt(activity, executor, this);
       final BiometricPrompt.PromptInfo info = new BiometricPrompt.PromptInfo.Builder()
         .setTitle("Authentication required")
-        .setNegativeButtonText("Cancel")
+        .setDeviceCredentialAllowed(true)
         .setSubtitle("Please use biometric authentication to unlock the app")
         .build();
 
